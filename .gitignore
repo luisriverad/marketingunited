@@ -1,0 +1,13 @@
+# dependencias
+node_modules/
+
+# build
+dist/
+
+# variables de entorno (¡tu API key vive aquí, no la subas!)
+.env
+.env.local
+.env.*.local
+
+# sistema
+.DS_Store
