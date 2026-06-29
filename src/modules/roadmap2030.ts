@@ -99,6 +99,31 @@ const DEFAULTS={
   {act:'Cierre financiero',a:'Comparación margen esperado vs real',imp:'Aprendizaje por proyecto',on:false},
   {act:'Satisfacción',a:'Encuesta de satisfacción + analíticas',imp:'Señal temprana de fuga',on:true},
  ],
+ // tablas cualitativas editables (texto inicial sugerido, persisten en sesión)
+ gates:[
+  ['Lead','Account Owner','Lead aceptado o rechazado','% leads calificados'],
+  ['Brief','Account + PM','Brief completo','% briefs completos'],
+  ['Propuesta','Cotización + Servicio','Propuesta rentable','Margen esperado'],
+  ['Cierre','Account + Finanzas','Proyecto autorizado','% anticipo recibido'],
+  ['Producción','Servicio responsable','Listo para ejecutar','Retrabajos'],
+  ['Ejecución','PM + Operación','Entrega sin desviaciones','Q / t / $'],
+  ['Medición','PM + Data','Cierre financiero-operativo','Margen real'],
+  ['Recompra','Account Owner','Nueva oportunidad','Tasa de recompra'],
+ ],
+ roles:[
+  ['Account Owner','Relación, venta, expansión y retención del cliente','Ventas, recompra, concentración, LTV'],
+  ['Líder Servicio','Margen, capacidad, calidad y especialización de la unidad','EBITDA Servicio, margen, utilización HH'],
+  ['Project Manager','Gates, tiempos, entregables, desviaciones Q/t/$','Retrabajos, desviaciones, cumplimiento'],
+  ['Especialista / Producción','Ejecución técnica y estandarización operativa','Productividad HH, calidad, retrabajo'],
+  ['Finanzas comercial','Costeo, pricing, margen mínimo y rentabilidad por proyecto','Margen proyecto, punto de equilibrio'],
+  ['Data / IA Ops','Automatización, dashboards y mejora de procesos','Horas ahorradas, adopción, eficiencia'],
+ ],
+ prod:[
+  ['Revenue / empleado Servicio','Ventas Servicio / empleados','Productividad comercial por Servicio'],
+  ['Gross profit / empleado','Utilidad bruta Servicio / empleados','Productividad real, no solo ventas'],
+  ['Utilización HH','HH vendidas / HH disponibles','Detectar sobrecarga u ociosidad'],
+  ['Utilización HH$','HH$ vendidas / HH$ disponibles','Monetización de capacidad'],
+ ],
  roadDone:{}, // checks del roadmap 90 días, clave "ola-item"
 };
 let S=JSON.parse(JSON.stringify(DEFAULTS));
@@ -185,6 +210,10 @@ function uMark(fill,size){return `<svg width="${size}" height="${size*1.08}" vie
 function inp(path,val,type,w){let disp=type==='pct'?val*100:val;disp=type==='int'?Math.round(disp):Math.round(disp*100)/100;
  const step=type==='pct'?'0.5':type==='int'?'1':'0.1';const suf=type==='pct'?'<span class="isuf">%</span>':'';
  return `<span class="inwrap"><input class="inp" type="text" inputmode="decimal" data-bind="${path}" data-t="${type}" value="${grp(disp)}" style="width:${w||60}px">${suf}</span>`;}
+// input verde de TEXTO (mismo look que inp, pero guarda string)
+function itxt(path,val,w,ph){return `<span class="inwrap"><input class="inp" type="text" data-bind="${path}" data-t="text" value="${esc(val||'')}" placeholder="${ph||''}" style="width:${w||120}px;text-align:left"></span>`;}
+// textarea verde editable (para textos largos): mismo verde/azul, guarda string
+function iarea(path,val,rows,bold){return `<textarea class="inp iarea${bold?' b':''}" data-bind="${path}" data-t="text" rows="${rows||2}">${esc(val||'')}</textarea>`;}
 const editBadge='<span class="editbadge"><i></i>Celdas verdes = captura editable · recalcula en vivo</span>';
 function ed(view,r,c,val){return `<span class="ed" contenteditable="true" data-view="${view}" data-r="${r}" data-c="${c}">${esc(val)}</span>`;}
 function comboChart(bars,line,labels,{h=200}={}){const W=720,H=h,pl=46,pr=46,pt=14,iw=W-pl-pr,ih=H-pt-26;
@@ -341,7 +370,13 @@ function vFinanciero(){
 
 function vComercial(){
  const v=el('div','view');
- const rows=SERVICES.map((s,i)=>[`<b>${s}</b>`,ed('cidealCli',i,'x','—'),ed('cidealTk',i,'x','—'),ed('cidealMg',i,'x','—'),ed('cidealRc',i,'x','—')]);
+ // lista dinámica desde S.ue: incluye los servicios agregados en Portafolio.
+ // Todas las columnas son input verde editable y se guardan por servicio en S.ue[i].
+ const rows=S.ue.map((u,i)=>[`<b>${u.name}</b>`,
+   itxt('ue.'+i+'.cli',u.cli,150,'¿Cliente ideal?'),
+   inp('ue.'+i+'.ticket',u.ticket||0,'int',90),
+   inp('ue.'+i+'.mmin',u.mmin||0,'pct',56),
+   inp('ue.'+i+'.recompra',u.recompra||0,'pct',56)]);
  v.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
    <div class="sectsub">A quién vender, qué venderle, con qué margen mínimo y con qué reglas para no crecer a costa de complejidad. Captura el cliente ideal por servicio.</div><span class="editbadge"><i></i>Campos editables · captura en sesión</span></div>
@@ -367,13 +402,14 @@ function vComercial(){
 
 function vOperativo(){
  const v=el('div','view');
- const gates=GATES.map((g,i)=>`<div class="gaterow"><div class="gnum">${i+1}</div>
-   <div style="font-weight:600;font-size:13px">${g[0]}</div><div style="font-size:12px;color:var(--muted)">${g[1]}</div>
-   <div style="font-size:12px">${g[2]}</div><div><span class="chiplim" style="font-size:10px">${g[3]}</span></div></div>`).join('');
- const stdRows=SERVICES.map((s,i)=>[`<b>${s}</b>`,ed('stdQ',i,'x','—'),ed('stdT',i,'x','—'),ed('std$',i,'x','—')]);
+ const svc=S.ue.map(u=>u.name); // lista dinámica: incluye los servicios agregados en Portafolio
+ const gates=S.gates.map((g,i)=>`<div class="gaterow"><div class="gnum">${i+1}</div>
+   <div>${iarea('gates.'+i+'.0',g[0],1,true)}</div><div>${iarea('gates.'+i+'.1',g[1],1)}</div>
+   <div>${iarea('gates.'+i+'.2',g[2],1)}</div><div>${iarea('gates.'+i+'.3',g[3],1)}</div></div>`).join('');
+ const stdRows=svc.map((s,i)=>[`<b>${s}</b>`,ed('stdQ',i,'x','—'),ed('stdT',i,'x','—'),ed('std$',i,'x','—')]);
  v.innerHTML=`
   <div class="sectsub" style="margin-bottom:16px">Diseñar una operación por Servicio que convierta demanda comercial en entrega rentable, medible y repetible.</div>
-  <div class="card cpad"><div class="chead"><span class="t">1 · Flujo operativo por gates</span><span class="k">8 etapas</span></div>
+  <div class="card cpad"><div class="chead"><span class="t">1 · Flujo operativo por gates</span><span class="k">${S.gates.length} etapas</span></div>
    <div class="gaterow" style="border-bottom:1px solid var(--line-2)"><div></div><div class="mono" style="font-size:9px;color:var(--muted);text-transform:uppercase">Etapa</div><div class="mono" style="font-size:9px;color:var(--muted);text-transform:uppercase">Dueño</div><div class="mono" style="font-size:9px;color:var(--muted);text-transform:uppercase">Gate</div><div class="mono" style="font-size:9px;color:var(--muted);text-transform:uppercase">KPI</div></div>
    ${gates}</div>
   <div class="g2" style="margin-top:16px">
@@ -396,14 +432,9 @@ function vTalento(){
    <div class="sectsub">Construir la estructura de talento para operar por Servicio, escalar productividad y reducir dependencia de personas clave.</div>${editBadge}</div>
   <div class="g2">
    <div class="card cpad"><div class="chead"><span class="t">1 · Estructura objetivo</span><span class="k">roles 2030</span></div>
-     ${tcard(['Rol','Responsabilidad','Indicador'],ROLES.map(r=>[`<b>${r[0]}</b>`,r[1],r[2]]))}</div>
+     ${tcard(['Rol','Responsabilidad','Indicador'],S.roles.map((r,i)=>[iarea('roles.'+i+'.0',r[0],1,true),iarea('roles.'+i+'.1',r[1],2),iarea('roles.'+i+'.2',r[2],2)]))}</div>
    <div class="card cpad"><div class="chead"><span class="t">2 · Productividad del talento</span><span class="k">fórmulas</span></div>
-     ${tcard(['Indicador','Fórmula','Uso'],[
-       ['<b>Revenue / empleado Servicio</b>','Ventas Servicio / empleados','Productividad comercial por Servicio'],
-       ['<b>Gross profit / empleado</b>','Utilidad bruta Servicio / empleados','Productividad real, no solo ventas'],
-       ['<b>Utilización HH</b>','HH vendidas / HH disponibles','Detectar sobrecarga u ociosidad'],
-       ['<b>Utilización HH$</b>','HH$ vendidas / HH$ disponibles','Monetización de capacidad'],
-     ])}</div>
+     ${tcard(['Indicador','Fórmula','Uso'],S.prod.map((r,i)=>[iarea('prod.'+i+'.0',r[0],1,true),iarea('prod.'+i+'.1',r[1],2),iarea('prod.'+i+'.2',r[2],2)]))}</div>
   </div>
   <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">3 · Capacidades necesarias 2030</span><span class="k">brecha = requerido − actual (auto)</span></div>
    <table class="tbl" style="text-align:left"><thead><tr><th style="text-align:left">Capacidad</th><th>Nivel actual</th><th>Nivel requerido</th><th>Brecha</th><th style="text-align:left">Acción</th></tr></thead>
@@ -489,8 +520,11 @@ function go(name,keep){CUR=name;
  $('.side').classList.remove('open');window.scrollTo({top:keep?sy:0,behavior:'instant'});}
 function recalc(){go(CUR,true);}
 ROOT.addEventListener('change',e=>{const t=e.target;
- if(t.classList&&t.classList.contains('inp')){let val=parseFloat(String(t.value).replace(/,/g,''));if(isNaN(val))val=0;if(t.dataset.t==='pct')val/=100;
-   const p=t.dataset.bind.split('.');let o=S;for(let j=0;j<p.length-1;j++)o=o[p[j]];o[p[p.length-1]]=val;recalc();return;}
+ if(t.classList&&t.classList.contains('inp')){
+   const p=t.dataset.bind.split('.');let o=S;for(let j=0;j<p.length-1;j++)o=o[p[j]];
+   if(t.dataset.t==='text'){o[p[p.length-1]]=t.value;return;} // texto: guarda string, sin re-render
+   let val=parseFloat(String(t.value).replace(/,/g,''));if(isNaN(val))val=0;if(t.dataset.t==='pct')val/=100;
+   o[p[p.length-1]]=val;recalc();return;}
  if(t.classList&&t.classList.contains('dsel')){S.uen[+t.dataset.dec].dec=t.value;recalc();return;}
  if(t.classList&&t.classList.contains('rsel')){S.uen[+t.dataset.rol].rol=t.value;recalc();return;}});
 ROOT.addEventListener('input',e=>{const t=e.target;

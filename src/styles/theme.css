@@ -209,6 +209,9 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 .inp::-webkit-outer-spin-button,.inp::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .inp:hover{border-color:#0070C0}
 .inp:focus{outline:2px solid var(--lime);outline-offset:0;background:#F5FFE9}
+/* textarea verde editable (textos largos en tablas cualitativas) */
+.iarea{display:block;width:100%;text-align:left;font-family:var(--sans);font-weight:500;font-size:12px;line-height:1.4;resize:vertical;min-height:28px;padding:6px 8px}
+.iarea.b{font-weight:700}
 .edname{font-family:var(--sans);background:#EEFFDB;color:#0070C0;border:1px solid #C5E6A6;border-radius:5px;
   padding:1px 7px;font-weight:600;cursor:text;outline:none;transition:.12s;display:inline-block}
 .edname:hover{border-color:#0070C0}
