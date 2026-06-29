@@ -750,8 +750,8 @@ function opDiagnostico(){
 /* ---- Evaluador de Brief: arrastra el brief y la IA califica fallas / faltantes / riesgos ---- */
 function briefEvaluador(){
   return `<div class="card cpad" style="margin-top:16px">
-     <div class="chead"><span class="t">Evaluador de Brief · ¿está listo para avanzar?</span><span class="k">arrastra y suelta</span></div>
-     <div class="sectsub" style="margin:0 0 14px">El retrabajo nace de un brief flojo. Arrastra el <b>brief del cliente</b> (PDF, Word o texto) y la IA detecta <b>fallas, faltantes y áreas de riesgo</b> antes de que cueste horas-hombre.</div>
+     <div class="chead"><span class="t">Evaluador de Brief</span><span class="k">arrastra y suelta</span></div>
+     <div class="sectsub" style="margin:0 0 14px">Arrastra el <b>brief del cliente</b> (PDF, Word o texto) para detectar <b>fallas, faltantes y áreas de riesgo</b> antes de que cueste horas-hombre.</div>
      <div id="briefdrop" class="dropzone">
        <div class="dz-ic">⇪</div>
        <div class="dz-t">Arrastra aquí el brief</div>

@@ -271,8 +271,8 @@ table{width:100%;border-collapse:collapse;font-size:13px}
 .yeartbl tr.sum td{font-weight:700;border-top:1px solid var(--line-2)}
 .yeartbl .y30{background:rgba(211,255,0,.10)}
 .yeartbl th.y30{background:rgba(211,255,0,.16);color:var(--ink);border-radius:6px 6px 0 0}
-.dsel{font-family:var(--mono);font-size:11px;font-weight:600;border:1px solid var(--line-2);border-radius:6px;padding:3px 8px;background:var(--card);cursor:pointer;color:var(--ink)}
-.dsel:focus{outline:2px solid var(--lime)}
+.dsel,.rsel{font-family:var(--mono);font-size:11px;font-weight:600;border:1px solid var(--line-2);border-radius:6px;padding:3px 8px;background:var(--card);cursor:pointer;color:var(--ink)}
+.dsel:focus,.rsel:focus{outline:2px solid var(--lime)}
 .decpill{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:700;padding:3px 10px;border-radius:50px;letter-spacing:.03em}
 .dec-Crecer{background:#EAF7E2;color:#2f6b1f;border:1px solid #bfe3a0}
 .dec-Rediseñar{background:#FDEEDA;color:#9A6212;border:1px solid #f0d09a}

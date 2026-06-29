@@ -269,11 +269,13 @@ function frente(t,d,go){return `<div class="bd" data-go="${go}" style="cursor:po
 function vPortafolio(){
  const v=el('div','view');
  const decs=['Crecer','Rediseñar','Eliminar','Mantener'];
+ const roles=['Motor estrella','Motor principal','Motor','Escalar con margen','Estandarizar','Controlar volumen','Ingreso recurrente','Reestructurar o salir'];
+ const rolOpts=u=>(roles.includes(u.rol)?roles:[u.rol,...roles]).map(r=>`<option ${u.rol===r?'selected':''}>${r}</option>`).join('');
  const rows=S.uen.map((u,i)=>`<tr>
-   <td style="font-weight:600">${u.name}</td>
+   <td style="font-weight:600"><span class="ed svcname" contenteditable="true" spellcheck="false" data-i="${i}" data-old="${esc(u.name)}">${esc(u.name)}</span><button class="rowdel" data-act="del-svc" data-i="${i}" data-name="${esc(u.name)}" title="Quitar servicio">×</button></td>
    <td><select class="dsel" data-dec="${i}">${decs.map(d=>`<option ${u.dec===d?'selected':''}>${d}</option>`).join('')}</select></td>
    <td><span class="decpill dec-${u.dec}">${u.dec}</span></td>
-   <td>${ed('uen',i,'rol',u.rol)}</td>
+   <td><select class="rsel" data-rol="${i}">${rolOpts(u)}</select></td>
    <td style="color:var(--muted)">${ed('uen',i,'just',u.just)}</td></tr>`).join('');
  const mixRows=S.mix.map((m,i)=>`<tr><td style="font-weight:600">${m.f}</td><td>${inp('mix.'+i+'.a',m.a,'int',52)}</td><td>${inp('mix.'+i+'.o',m.o,'int',52)}</td>
    <td>${ed('mix',i,'dec',m.dec)}</td></tr>`).join('');
@@ -281,7 +283,7 @@ function vPortafolio(){
  v.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
    <div class="sectsub">Cada Servicio recibe una decisión estratégica 2030. Cambia la decisión y el rol; la justificación parte del desempeño real 2026.</div>${editBadge}</div>
-  <div class="card cpad"><div class="chead"><span class="t">Decisión estratégica por servicio</span><span class="k">9 Servicio</span></div>
+  <div class="card cpad"><div class="chead"><span class="t">Decisión estratégica por servicio</span><div class="cheadr"><span class="k">${S.uen.length} Servicio</span><button class="addbtn" data-act="add-svc">＋ Agregar servicio</button></div></div>
    <table class="tbl" style="text-align:left"><thead><tr><th style="text-align:left">Servicio</th><th style="text-align:left">Decisión 2030</th><th style="text-align:left">Estado</th><th style="text-align:left">Rol estratégico</th><th style="text-align:left">Justificación</th></tr></thead>
    <tbody>${rows}</tbody></table></div>
   <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">Mix de ingresos 2030</span><span class="k">% de la venta</span></div>
@@ -320,7 +322,7 @@ function vFinanciero(){
    </tbody></table>
    <div class="note">Capacidad de gasto = Ganancia bruta − Utilidad esperada. Diferencia positiva = holgura; negativa = sobre-gasto.</div></div>
   <div class="g2" style="margin-top:16px">
-   <div class="card cpad"><div class="chead"><span class="t">3 · Unit economics objetivo 2030</span><span class="k">por servicio · MDP</span></div>
+   <div class="card cpad"><div class="chead"><span class="t">3 · Unit economics objetivo 2030</span><span class="k">${S.ue.length} servicios · MDP</span></div>
      <table class="tbl" style="text-align:left"><thead><tr><th style="text-align:left">Servicio</th><th>Ventas</th><th>Margen</th><th>Gasto</th><th>Utilidad</th><th>Pto. Eq.</th></tr></thead>
      <tbody>${ueRows}</tbody></table>
      <div class="note">Utilidad = Ventas × Margen − Gasto asignado. Pto. Eq. = (Ventas × Margen − Gasto) ÷ Margen.</div></div>
@@ -489,10 +491,20 @@ function recalc(){go(CUR,true);}
 ROOT.addEventListener('change',e=>{const t=e.target;
  if(t.classList&&t.classList.contains('inp')){let val=parseFloat(String(t.value).replace(/,/g,''));if(isNaN(val))val=0;if(t.dataset.t==='pct')val/=100;
    const p=t.dataset.bind.split('.');let o=S;for(let j=0;j<p.length-1;j++)o=o[p[j]];o[p[p.length-1]]=val;recalc();return;}
- if(t.classList&&t.classList.contains('dsel')){S.uen[+t.dataset.dec].dec=t.value;recalc();return;}});
-ROOT.addEventListener('input',e=>{const t=e.target;if(t.classList&&t.classList.contains('ed')){
+ if(t.classList&&t.classList.contains('dsel')){S.uen[+t.dataset.dec].dec=t.value;recalc();return;}
+ if(t.classList&&t.classList.contains('rsel')){S.uen[+t.dataset.rol].rol=t.value;recalc();return;}});
+ROOT.addEventListener('input',e=>{const t=e.target;
+  if(t.classList&&t.classList.contains('svcname')){ // renombrar servicio: sincroniza con unit economics (S.ue)
+    const i=+t.dataset.i,old=t.dataset.old,nn=t.textContent;
+    if(S.uen[i])S.uen[i].name=nn;S.ue.forEach(x=>{if(x.name===old)x.name=nn;});t.dataset.old=nn;return;}
+  if(t.classList&&t.classList.contains('ed')){
   const o=S[t.dataset.view];if(Array.isArray(o)&&t.dataset.c!=='x')o[+t.dataset.r][t.dataset.c]=t.textContent;}});
 ROOT.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){go(g.dataset.go);return;}
+ const as=e.target.closest('[data-act="add-svc"]');if(as){ // agregar servicio en ambas tablas/pestañas
+   const name='NUEVO SERVICIO '+(S.uen.length+1);
+   S.uen.push({name,dec:'Crecer',rol:'Motor',just:''});
+   S.ue.push({name,v:0,m:0.30,g:0});recalc();return;}
+ const ds=e.target.closest('[data-act="del-svc"]');if(ds){if(S.uen.length>1){const nm=ds.dataset.name;S.uen.splice(+ds.dataset.i,1);S.ue=S.ue.filter(x=>x.name!==nm);recalc();}return;}
  const rd=e.target.closest('[data-road]');if(rd){S.roadDone[rd.dataset.road]=!S.roadDone[rd.dataset.road];recalc();return;}
  const tg=e.target.closest('[data-auto]');if(tg){const i=+tg.dataset.auto;S.auto[i].on=!S.auto[i].on;recalc();}});
 ROOT.addEventListener('click',async e=>{
