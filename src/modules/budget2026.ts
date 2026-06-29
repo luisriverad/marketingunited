@@ -960,6 +960,7 @@ ROOT.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>go(a.d
 $('.menubtn').addEventListener('click',()=>$('.side').classList.toggle('open'));
 $('.brandchip').innerHTML=uMark('#C7E84A',24);
 setIcons();
+try{window.__MU_cierre=aiPayload;}catch(e){} // publica la data del módulo para el "gran cierre" en Riesgos
 go('resumen');
 
 

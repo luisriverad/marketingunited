@@ -75,7 +75,17 @@ function aiAnalyze(apiKey: string): Plugin {
             'viñetas "- " y **negritas** para cifras clave. Sé concreto y apóyate en los números reales del payload. ' +
             'Estructura el análisis en: Diagnóstico, Riesgos principales, Palancas de valor, y Recomendaciones accionables (con prioridad). ' +
             'Sé conciso: máximo ~400 palabras en total.'
-          const system = mode === 'plan' ? PLAN_SYS : mode === 'brief' ? BRIEF_SYS : mode === 'evaluacion' ? EVAL_SYS : ANALYSIS_SYS
+          const REACCION_SYS =
+            `Eres asesor de estrategia y riesgos del CEO de ${empresa}, agencia de marketing B2B. ` +
+            'Te entrego TODO el documento de planeación en JSON: el cierre financiero 2026 (cierre2026), el plan Rumbo al 2030 (rumbo2030) ' +
+            'y el módulo de Riesgos / prácticas antifrágiles (riesgos). Léelo en conjunto y propón PLANES DE REACCIÓN ANTICIPATORIA ' +
+            '(decidir antes del shock, no reaccionar después). Markdown, secciones EXACTAS con "## ": ' +
+            'Lectura del documento (3-5 viñetas con los riesgos sistémicos que conectan los 3 módulos, citando cifras concretas: concentración de clientes, margen, CCC/caja, capacidad HH); ' +
+            'Señales a vigilar (cada una con su umbral observable); ' +
+            'Planes de reacción anticipatoria (para cada riesgo: **Disparador** observable → reacción preaprobada → dueño → cuándo); ' +
+            'Movimientos sin arrepentimiento (acciones a iniciar ya, pase lo que pase). ' +
+            'Sé concreto y apóyate en los números reales del payload. Máximo ~550 palabras.'
+          const system = mode === 'plan' ? PLAN_SYS : mode === 'brief' ? BRIEF_SYS : mode === 'evaluacion' ? EVAL_SYS : mode === 'reaccion' ? REACCION_SYS : ANALYSIS_SYS
 
           const PLAN_USER =
             `Construye el plan de trabajo 30·60·90 para los cuellos de botella comerciales de ${empresa}. ` +
@@ -96,7 +106,11 @@ function aiAnalyze(apiKey: string): Plugin {
             'Si algún dato no aplica al tema, úsalo solo como contexto.\n\n' +
             'Datos (JSON):\n' +
             JSON.stringify(data)
-          const user = mode === 'plan' ? PLAN_USER : mode === 'brief' ? BRIEF_USER : mode === 'evaluacion' ? EVAL_USER : ANALYSIS_USER
+          const REACCION_USER =
+            `Evalúa todo el documento de ${empresa} (los 3 módulos) y entrega el plan de reacción anticipatoria.\n\n` +
+            'Documento completo (JSON):\n' +
+            JSON.stringify(data)
+          const user = mode === 'plan' ? PLAN_USER : mode === 'brief' ? BRIEF_USER : mode === 'evaluacion' ? EVAL_USER : mode === 'reaccion' ? REACCION_USER : ANALYSIS_USER
 
           const body = JSON.stringify({
             model: GROQ_MODEL,

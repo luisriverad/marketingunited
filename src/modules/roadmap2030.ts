@@ -589,7 +589,7 @@ ROOT.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>go(a.d
 $('.menubtn').addEventListener('click',()=>$('.side').classList.toggle('open'));
 $('.resetbtn').addEventListener('click',()=>{S=JSON.parse(JSON.stringify(DEFAULTS));recalc();});
 $('.brandchip').innerHTML=uMark('#C7E84A',24);
-setIcons();go('resumen');
+setIcons();try{window.__MU_rumbo=aiPayload;}catch(e){}go('resumen'); // publica la data del módulo para el "gran cierre" en Riesgos
 
 
   return () => { ROOT.innerHTML = ''; };

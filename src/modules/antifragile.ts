@@ -168,6 +168,26 @@ const ICON={
 function setIcons(){ROOT.querySelectorAll('[data-i]').forEach(s=>{s.innerHTML=`<svg viewBox="0 0 19 19" width="100%" height="100%" fill="currentColor">${ICON[s.dataset.i]||''}</svg>`;});}
 function uMark(fill,size){return `<svg width="${size}" height="${size*1.08}" viewBox="0 0 100 108"><path d="M6 0 L6 60 Q6 104 50 104 Q94 104 94 60 L94 0 L50 40 Z" fill="${fill}"/></svg>`;}
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// payload del módulo Riesgos (las 9 prácticas, con sus filas actuales)
+function riesgosPayload(){return Object.keys(DATA).map(k=>({practica:DATA[k].title,seccion:DATA[k].sec,columnas:DATA[k].cols,filas:DATA[k].rows}));}
+// documento completo: los 3 módulos (lee lo que publican Cierre 2026 y Rumbo 2030 en window)
+function documentoCompleto(){
+  const safe=fn=>{try{return typeof fn==='function'?fn():null;}catch(_){return null;}};
+  return {cierre2026:safe(window.__MU_cierre),rumbo2030:safe(window.__MU_rumbo),riesgos:riesgosPayload()};
+}
+function mdToHtml(md){
+  const e=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const inline=s=>e(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
+  const out=[];let list=null;
+  md.split(/\r?\n/).forEach(line=>{const l=line.trim();
+    if(!l){if(list){out.push('</'+list+'>');list=null;}return;}
+    const ord=/^\d+\.\s+(.*)/.exec(l);
+    if(/^#{2,3}\s+/.test(l)){if(list){out.push('</'+list+'>');list=null;}out.push('<h4 class="aih">'+inline(l.replace(/^#{2,3}\s+/,''))+'</h4>');}
+    else if(/^[-*]\s+/.test(l)){if(list!=='ul'){if(list)out.push('</'+list+'>');out.push('<ul class="ail">');list='ul';}out.push('<li>'+inline(l.replace(/^[-*]\s+/,''))+'</li>');}
+    else if(ord){if(list!=='ol'){if(list)out.push('</'+list+'>');out.push('<ol class="ail">');list='ol';}out.push('<li>'+inline(ord[1])+'</li>');}
+    else{if(list){out.push('</'+list+'>');list=null;}out.push('<p>'+inline(l)+'</p>');}});
+  if(list)out.push('</'+list+'>');return out.join('');
+}
 
 /* ============ RENDERERS ============ */
 const META={resumen:['Las 9 prácticas','Empresa Antifrágil rumbo a 2030'],sistema:['Sistema antifrágil 2030','Rutina de decisión · Antifragility Operating System']};
@@ -179,7 +199,7 @@ function tableCard(key){
  const body=d.rows.map((r,ri)=>`<tr>${r.map((cell,ci)=>{
    let inner=esc(cell);
    if(d.phases&&d.phases[ci]){const ph=d.phases[ci];inner=`<span class="phase ${ph[0]}">${ph[1]}</span><div>${esc(cell)}</div>`;}
-   if(d.edit&&d.edit.includes(ci)){inner=`<span class="ed" contenteditable="true" data-view="${key}" data-r="${ri}" data-c="${ci}">${esc(cell)}</span>`;}
+   if(d.edit&&d.edit.includes(ci)){inner=`<span class="ed edbox" contenteditable="true" data-view="${key}" data-r="${ri}" data-c="${ci}">${esc(cell)}</span>`;}
    return `<td>${inner}</td>`;}).join('')}</tr>`).join('');
  return `<div class="tcard"><table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
@@ -195,14 +215,23 @@ function practiceView(key){
     <span class="editbadge"><i></i>Campos de acción editables · adáptalos en sesión</span>
   </div>
   <div class="chead" style="margin-bottom:10px"><span class="t">${d.sec}</span><span class="k">${d.rows.length} filas</span></div>
-  ${tableCard(key)}`;
+  ${tableCard(key)}
+  ${key==='playbooks'?granCierre():''}`;
  return v;
+}
+function granCierre(){
+ return `<div class="card cpad" style="margin-top:20px;border:1.5px solid var(--ink);background:linear-gradient(180deg,#fbfbf7,#f3f6ec)">
+   <div class="chead"><span class="t">Gran cierre · Plan de reacción anticipatoria</span><span class="k">evalúa los 3 módulos</span></div>
+   <div class="sectsub" style="margin:0 0 12px;max-width:820px">El cierre de todo el documento. La IA lee <b>Cierre 2026</b>, <b>Rumbo al 2030</b> y <b>Riesgos</b> juntos, conecta las amenazas sistémicas y propone <b>planes de reacción anticipatoria</b>: qué vigilar, qué decidir <i>antes</i> del shock, quién y cuándo.</div>
+   <button class="addbtn" data-act="gran-cierre">✦ Generar plan de reacción anticipatoria</button>
+   <div class="aipanel granpanel" style="display:none;margin-top:16px"></div>
+ </div>`;
 }
 function vSistema(){
  const d=DATA.sistema;const v=document.createElement('div');v.className='view';
  const rows=d.rows.map((r,ri)=>`<div class="rrow">
    <div class="sig">${esc(r[0])}</div>
-   <div class="umb"><span class="ed" contenteditable="true" data-view="sistema" data-r="${ri}" data-c="1">${esc(r[1])}</span></div>
+   <div class="umb"><span class="ed edbox" contenteditable="true" data-view="sistema" data-r="${ri}" data-c="1">${esc(r[1])}</span></div>
    <div class="dec">${esc(r[2])}</div>
    <div class="freq">${esc(r[3])}</div></div>`).join('');
  v.innerHTML=`
@@ -259,6 +288,21 @@ function go(name){
 }
 ROOT.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>go(a.dataset.v)));
 ROOT.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)go(g.dataset.go);});
+// Gran cierre: evalúa los 3 módulos y propone planes de reacción anticipatoria
+ROOT.addEventListener('click',async e=>{
+ const btn=e.target.closest?e.target.closest('[data-act="gran-cierre"]'):null;if(!btn||btn.disabled)return;
+ const panel=$('.granpanel');if(!panel)return;
+ const label=btn.textContent;btn.disabled=true;btn.textContent='Evaluando todo el documento…';
+ panel.style.display='block';panel.innerHTML='<div class="aiload"><span class="aispin"></span>EVALUANDO LOS 3 MÓDULOS · PLAN DE REACCIÓN ANTICIPATORIA…</div>';
+ try{
+   const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'reaccion',empresa:'Marketing United',topic:'plan de reacción anticipatoria',payload:documentoCompleto()})});
+   const raw=await r.text();let data=null;try{data=raw?JSON.parse(raw):{};}catch(_){data=null;}
+   if(data===null)throw new Error(r.status===404?'La función /api/analyze no está desplegada (sube api/ y configura GROQ_API_KEY en Vercel).':'El servidor no devolvió JSON (código '+r.status+').');
+   if(!r.ok)throw new Error(data.error||('Error '+r.status));
+   panel.innerHTML='<div class="aihead"><span class="aibadge">✦ Plan de reacción anticipatoria · documento completo</span></div><div class="aibody">'+mdToHtml(data.text||'(sin respuesta)')+'</div>';
+ }catch(err){panel.innerHTML='<div class="aierr">No se pudo generar el plan: '+(err&&err.message?err.message:err)+'</div>';}
+ finally{btn.disabled=false;btn.textContent=label;}
+});
 ROOT.addEventListener('input',e=>{const t=e.target;if(!t.classList||!t.classList.contains('ed'))return;
   DATA[t.dataset.view].rows[+t.dataset.r][+t.dataset.c]=t.textContent;});
 $('.menubtn').addEventListener('click',()=>$('.side').classList.toggle('open'));
