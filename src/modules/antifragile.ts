@@ -221,8 +221,8 @@ function practiceView(key){
 }
 function granCierre(){
  return `<div class="card cpad" style="margin-top:20px;border:1.5px solid var(--ink);background:linear-gradient(180deg,#fbfbf7,#f3f6ec)">
-   <div class="chead"><span class="t">Gran cierre · Plan de reacción anticipatoria</span><span class="k">evalúa los 3 módulos</span></div>
-   <div class="sectsub" style="margin:0 0 12px;max-width:820px">El cierre de todo el documento. La IA lee <b>Cierre 2026</b>, <b>Rumbo al 2030</b> y <b>Riesgos</b> juntos, conecta las amenazas sistémicas y propone <b>planes de reacción anticipatoria</b>: qué vigilar, qué decidir <i>antes</i> del shock, quién y cuándo.</div>
+   <div class="chead"><span class="t">Plan de reacción anticipatoria</span><span class="k">evalúa los 3 módulos</span></div>
+   <div class="sectsub" style="margin:0 0 12px;max-width:820px">El cierre de todo el documento. El sistema lee <b>Cierre 2026</b>, <b>Rumbo al 2030</b> y <b>Riesgos</b> juntos, conecta las amenazas sistémicas y propone <b>planes de reacción anticipatoria</b>: qué vigilar, qué decidir <i>antes</i> del shock, quién y cuándo.</div>
    <button class="addbtn" data-act="gran-cierre">✦ Generar plan de reacción anticipatoria</button>
    <div class="aipanel granpanel" style="display:none;margin-top:16px"></div>
  </div>`;
