@@ -124,6 +124,39 @@ const DEFAULTS={
   ['Utilización HH','HH vendidas / HH disponibles','Detectar sobrecarga u ociosidad'],
   ['Utilización HH$','HH$ vendidas / HH$ disponibles','Monetización de capacidad'],
  ],
+ // Tecnología IA · plan de trabajo en checklist por grupos (done/fecha/resp/nec por ítem)
+ tech:[
+  {g:'Principio operativo',items:[
+   {label:'Herramientas sueltas → Sistema integrado por Servicio'},
+   {label:'Reportes manuales → Dashboards vivos'},
+   {label:'IA como experimento → IA aplicada a procesos con impacto en Q / t / $'},
+   {label:'Datos dispersos → Data accionable para decidir'},
+  ]},
+  {g:'Dashboards críticos',items:[
+   {label:'CEO — Ventas, EBITDA, margen por Servicio, caja, riesgos'},
+   {label:'Servicio — Ventas, margen, capacidad, calidad, recompra'},
+   {label:'Comercial — Pipeline, conversión, CAC, LTV, concentración'},
+   {label:'Finanzas — Margen esperado vs real, CCC, punto de equilibrio'},
+  ]},
+  {g:'Procesos a digitalizar',items:[
+   {label:'Comercial — Pipeline disperso → CRM único por cliente, Servicio, etapa, ticket y margen'},
+   {label:'Brief — Información incompleta → Brief digital con campos obligatorios y gate de avance'},
+   {label:'Cotización — Costeo variable por persona → Plantillas por Servicio con margen mínimo y alertas'},
+   {label:'Operación — Seguimiento manual → PM system con responsables, fechas, gates y desviaciones'},
+   {label:'Finanzas — Rentabilidad tardía → Rentabilidad por proyecto, cliente y Servicio casi en tiempo real'},
+   {label:'Talento — Carga invisible → HH disponibles, HH vendidas, picos y valles por Servicio'},
+   {label:'Medición — Resultados poco sistemáticos → Dashboard de resultados, recompra y aprendizajes'},
+  ]},
+  {g:'Automatizaciones prioritarias',items:[
+   {label:'Calificación de leads — Scoring por fit, ticket, margen y probabilidad'},
+   {label:'Brief — Formulario estándar + validación automática'},
+   {label:'Cotización — Calculadora por Servicio con margen mínimo'},
+   {label:'Propuestas — Plantillas por solución / Servicio'},
+   {label:'Seguimiento operativo — Alertas de gates, fechas y pendientes'},
+   {label:'Cierre financiero — Comparación margen esperado vs real'},
+   {label:'Satisfacción — Encuesta de satisfacción + analíticas'},
+  ]},
+ ],
  roadDone:{}, // checks del roadmap 90 días, clave "ola-item"
 };
 let S=JSON.parse(JSON.stringify(DEFAULTS));
@@ -211,9 +244,11 @@ function inp(path,val,type,w){let disp=type==='pct'?val*100:val;disp=type==='int
  const step=type==='pct'?'0.5':type==='int'?'1':'0.1';const suf=type==='pct'?'<span class="isuf">%</span>':'';
  return `<span class="inwrap"><input class="inp" type="text" inputmode="decimal" data-bind="${path}" data-t="${type}" value="${grp(disp)}" style="width:${w||60}px">${suf}</span>`;}
 // input verde de TEXTO (mismo look que inp, pero guarda string)
-function itxt(path,val,w,ph){return `<span class="inwrap"><input class="inp" type="text" data-bind="${path}" data-t="text" value="${esc(val||'')}" placeholder="${ph||''}" style="width:${w||120}px;text-align:left"></span>`;}
+function itxt(path,val,w,ph){const ww=typeof w==='number'?w+'px':(w||'120px');return `<span class="inwrap"${w==='100%'?' style="display:block"':''}><input class="inp" type="text" data-bind="${path}" data-t="text" value="${esc(val||'')}" placeholder="${ph||''}" style="width:${ww};text-align:left"></span>`;}
 // textarea verde editable (para textos largos): mismo verde/azul, guarda string
 function iarea(path,val,rows,bold){return `<textarea class="inp iarea${bold?' b':''}" data-bind="${path}" data-t="text" rows="${rows||2}">${esc(val||'')}</textarea>`;}
+// fecha editable (verde) con selector de fecha nativo
+function idate(path,val){return `<input class="inp idate" type="date" data-bind="${path}" data-t="text" value="${esc(val||'')}">`;}
 const editBadge='<span class="editbadge"><i></i>Celdas verdes = captura editable · recalcula en vivo</span>';
 function ed(view,r,c,val){return `<span class="ed" contenteditable="true" data-view="${view}" data-r="${r}" data-c="${c}">${esc(val)}</span>`;}
 function comboChart(bars,line,labels,{h=200}={}){const W=720,H=h,pl=46,pr=46,pt=14,iw=W-pl-pr,ih=H-pt-26;
@@ -445,30 +480,25 @@ function vTalento(){
 
 function vTecnologia(){
  const v=el('div','view');
- const autoRows=S.auto.map((a,i)=>`<tr><td style="font-weight:600">${a.act}</td><td style="font-family:var(--sans);font-weight:400">${a.a}</td>
-   <td style="font-family:var(--sans);font-weight:400;color:var(--muted)">${a.imp}</td>
-   <td><span class="toggle" data-auto="${i}"><b class="${a.on?'on':''}">SÍ</b><b class="${!a.on?'on no':''}">NO</b></span></td></tr>`).join('');
- const onCount=S.auto.filter(a=>a.on).length;
+ const total=S.tech.reduce((a,g)=>a+g.items.length,0);
+ const done=S.tech.reduce((a,g)=>a+g.items.filter(it=>it.done).length,0);
+ const groupCard=(g,gi)=>{
+   const gd=g.items.filter(it=>it.done).length;
+   const rows=g.items.map((it,ii)=>`<tr class="${it.done?'chkdone':''}">
+     <td style="width:30px;text-align:center"><span class="chk ${it.done?'on':''}" data-chk data-g="${gi}" data-i="${ii}">${it.done?'✓':''}</span></td>
+     <td style="text-align:left;font-weight:500;min-width:240px">${esc(it.label)}</td>
+     <td style="width:140px">${idate('tech.'+gi+'.items.'+ii+'.fecha',it.fecha)}</td>
+     <td style="width:130px">${itxt('tech.'+gi+'.items.'+ii+'.resp',it.resp,'100%','Responsable')}</td>
+     <td style="width:200px">${itxt('tech.'+gi+'.items.'+ii+'.nec',it.nec,'100%','¿Qué se necesita?')}</td></tr>`).join('');
+   return `<div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">${gi+1} · ${g.g}</span><span class="k">${gd}/${g.items.length} hechos</span></div>
+     <div style="overflow-x:auto"><table class="tbl" style="text-align:left"><thead><tr><th></th><th style="text-align:left">Acción</th><th style="text-align:left">Fecha límite</th><th style="text-align:left">Responsable</th><th style="text-align:left">Necesidades</th></tr></thead>
+     <tbody>${rows}</tbody></table></div></div>`;
+ };
  v.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px">
-   <div class="sectsub">Convertir tecnología, IA y data en una capa operativa que aumente velocidad, margen, control y escala por Servicio.</div>
-   <span class="editbadge"><i></i>${onCount}/${S.auto.length} automatizaciones activadas</span></div>
-  <div class="g2">
-   <div class="card cpad"><div class="chead"><span class="t">1 · Principio operativo</span><span class="k">de → a</span></div>
-     ${tcard(['De','A →'],PRINCIPIO.map(p=>[p[0],`<b style="color:var(--ink)">${p[1]}</b>`]))}</div>
-   <div class="card cpad"><div class="chead"><span class="t">Dashboards críticos</span><span class="k">por rol</span></div>
-     ${tcard(['Dashboard','Debe mostrar'],[
-       ['<b>CEO</b>','Ventas, EBITDA, margen por Servicio, caja, riesgos'],
-       ['<b>Servicio</b>','Ventas, margen, capacidad, calidad, recompra'],
-       ['<b>Comercial</b>','Pipeline, conversión, CAC, LTV, concentración'],
-       ['<b>Finanzas</b>','Margen esperado vs real, CCC, punto de equilibrio'],
-     ])}</div>
-  </div>
-  <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">2 · Procesos a digitalizar</span><span class="k">acción 2030</span></div>
-   ${tcard(['Proceso','Problema actual','Acción 2030'],DIGITAL.map(d=>[`<b>${d[0]}</b>`,`<span style="color:var(--muted)">${d[1]}</span>`,d[2]]))}</div>
-  <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">3 · Automatizaciones prioritarias</span><span class="k">activa / desactiva</span></div>
-   <table class="tbl" style="text-align:left"><thead><tr><th style="text-align:left">Actividad</th><th style="text-align:left">Automatización</th><th style="text-align:left">Impacto esperado</th><th>Activar</th></tr></thead>
-   <tbody>${autoRows}</tbody></table></div>`;
+   <div class="sectsub">Convertir tecnología, IA y data en una capa operativa que aumente velocidad, margen, control y escala por Servicio. Plan de trabajo: marca lo hecho y asigna fecha, responsable y necesidades por punto.</div>
+   <span class="editbadge"><i></i>${done}/${total} completados</span></div>
+  ${S.tech.map((g,gi)=>groupCard(g,gi)).join('')}`;
  return v;
 }
 function vRoadmap(){
@@ -495,7 +525,7 @@ function aiPayload(){return {
    moneda:'MDP (millones de pesos)',horizonte:'Actual → 2030',anios:YEARS,
    financiero:S.fin,caja:S.caja,mixClientes:S.mix,
    portafolioServicios:S.uen,unitEconomics2030:S.ue,
-   talento:S.talento,automatizaciones:S.auto,
+   talento:S.talento,planTecnologiaIA:S.tech,
 };}
 function mdToHtml(md){
   const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -539,6 +569,7 @@ ROOT.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){go
    S.uen.push({name,dec:'Crecer',rol:'Motor',just:''});
    S.ue.push({name,v:0,m:0.30,g:0});recalc();return;}
  const ds=e.target.closest('[data-act="del-svc"]');if(ds){if(S.uen.length>1){const nm=ds.dataset.name;S.uen.splice(+ds.dataset.i,1);S.ue=S.ue.filter(x=>x.name!==nm);recalc();}return;}
+ const ck=e.target.closest('[data-chk]');if(ck){const g=+ck.dataset.g,i=+ck.dataset.i;S.tech[g].items[i].done=!S.tech[g].items[i].done;recalc();return;}
  const rd=e.target.closest('[data-road]');if(rd){S.roadDone[rd.dataset.road]=!S.roadDone[rd.dataset.road];recalc();return;}
  const tg=e.target.closest('[data-auto]');if(tg){const i=+tg.dataset.auto;S.auto[i].on=!S.auto[i].on;recalc();}});
 ROOT.addEventListener('click',async e=>{
