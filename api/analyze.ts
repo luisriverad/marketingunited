@@ -27,33 +27,61 @@ export default async function handler(req: any, res: any) {
     const mode: string = payload?.mode || 'analysis'
     const data = payload?.payload ?? payload
 
-    const system =
-      mode === 'plan'
-        ? `Eres consultor de operaciones y mejora continua (Lean Kaizen) de ${empresa}, una agencia de marketing B2B. ` +
-          'Escribe en español, ejecutivo y accionable, en formato markdown. ' +
-          'Genera un PLAN DE TRABAJO a 90 días para resolver los cuellos de botella comerciales del payload. ' +
-          'Divídelo EXACTAMENTE en tres horizontes, cada uno con su encabezado "## ": "## 0–30 días", "## 31–60 días" y "## 61–90 días". ' +
-          'En cada horizonte usa viñetas "- " con acciones concretas; por cada acción indica entre paréntesis el responsable sugerido y en **negrita** el resultado esperado o métrica. ' +
-          'Encadena los horizontes con lógica (quick wins primero, estandarización después, escala/medición al final). ' +
-          'Sé conciso: máximo ~450 palabras en total.'
-        : `Eres el CFO/analista de negocio de ${empresa}, una agencia de marketing B2B. ` +
-          'Cifras en MDP (millones de pesos). ' +
-          'Escribe en español, directo y ejecutivo, con formato markdown: usa encabezados "## ", ' +
-          'viñetas "- " y **negritas** para cifras clave. Sé concreto y apóyate en los números reales del payload. ' +
-          'Estructura el análisis en: Diagnóstico, Riesgos principales, Palancas de valor, y Recomendaciones accionables (con prioridad). ' +
-          'Sé conciso: máximo ~400 palabras en total.'
+    const PLAN_SYS =
+      `Eres consultor de operaciones y mejora continua (Lean Kaizen) de ${empresa}, una agencia de marketing B2B. ` +
+      'Escribe en español, ejecutivo y accionable, en formato markdown. ' +
+      'Genera un PLAN DE TRABAJO a 90 días para resolver los cuellos de botella comerciales del payload. ' +
+      'Divídelo EXACTAMENTE en tres horizontes, cada uno con su encabezado "## ": "## 0–30 días", "## 31–60 días" y "## 61–90 días". ' +
+      'En cada horizonte usa viñetas "- " con acciones concretas; por cada acción indica entre paréntesis el responsable sugerido y en **negrita** el resultado esperado o métrica. ' +
+      'Encadena los horizontes con lógica (quick wins primero, estandarización después, escala/medición al final). ' +
+      'Sé conciso: máximo ~450 palabras en total.'
+    const BRIEF_SYS =
+      `Eres director de estrategia/planning senior de ${empresa}, una agencia de marketing B2B. ` +
+      "Tu trabajo es convertir las notas crudas de un cliente que a menudo 'no sabe bien qué quiere' en un BRIEF EJECUTABLE, a prueba de retrabajo. " +
+      'A partir del borrador (JSON), redacta un brief profesional en español, en markdown, con estas secciones EXACTAS con "## ": ' +
+      'Resumen ejecutivo; Objetivo de negocio y KPI; Público objetivo; Mensaje clave y propuesta de valor; Entregables y especificaciones; ' +
+      'Tiempos e hitos; Presupuesto; Mandatorios y restricciones; Criterios de éxito y medición; Cadena de aprobación; Preguntas para cerrar ambigüedades. ' +
+      'Reglas: donde el cliente dejó huecos, propón supuestos inteligentes y márcalos como **(supuesto a validar)**; sé específico y accionable, sin relleno; ' +
+      'si falta presupuesto o fecha, dilo explícito en "Preguntas para cerrar". Máximo ~500 palabras.'
+    const EVAL_SYS =
+      `Eres director de estrategia/planning senior de ${empresa}, agencia de marketing B2B, experto en evitar retrabajo. ` +
+      'Te entregan el TEXTO de un brief de cliente (puede venir incompleto o desordenado). Evalúalo con ojo crítico. ' +
+      'Responde en español, en markdown, con estas secciones EXACTAS con "## ": ' +
+      'Veredicto (¿listo para avanzar? Sí / No / Con reservas, en una línea); ' +
+      'Semáforo por gate (Calidad, Tiempo, Costo — usa 🟢/🟡/🔴 con razón breve cada uno); ' +
+      'Fallas y ambigüedades; Faltantes críticos (lo que impide cotizar o ejecutar); ' +
+      'Áreas de riesgo (dónde se generará retrabajo si avanza así); ' +
+      'Preguntas para el cliente (lista priorizada para cerrar huecos). ' +
+      'Sé concreto y exigente pero útil; parafrasea partes del brief al señalar un problema. Máximo ~500 palabras.'
+    const ANALYSIS_SYS =
+      `Eres el CFO/analista de negocio de ${empresa}, una agencia de marketing B2B. ` +
+      'Cifras en MDP (millones de pesos). ' +
+      'Escribe en español, directo y ejecutivo, con formato markdown: usa encabezados "## ", ' +
+      'viñetas "- " y **negritas** para cifras clave. Sé concreto y apóyate en los números reales del payload. ' +
+      'Estructura el análisis en: Diagnóstico, Riesgos principales, Palancas de valor, y Recomendaciones accionables (con prioridad). ' +
+      'Sé conciso: máximo ~400 palabras en total.'
+    const system = mode === 'plan' ? PLAN_SYS : mode === 'brief' ? BRIEF_SYS : mode === 'evaluacion' ? EVAL_SYS : ANALYSIS_SYS
 
-    const user =
-      mode === 'plan'
-        ? `Construye el plan de trabajo 30·60·90 para los cuellos de botella comerciales de ${empresa}. ` +
-          'Cada cuello trae su paso, problema, impacto y la acción Kaizen propuesta: conviértelos en tareas calendarizadas por horizonte.\n\n' +
-          'Datos (JSON):\n' +
-          JSON.stringify(data)
-        : `Analiza a profundidad **${topic}** de ${empresa}. ` +
-          'Identifica de dónde viene el valor o la fuga, qué decisiones tomar y con qué prioridad. ' +
-          'Si algún dato no aplica al tema, úsalo solo como contexto.\n\n' +
-          'Datos (JSON):\n' +
-          JSON.stringify(data)
+    const PLAN_USER =
+      `Construye el plan de trabajo 30·60·90 para los cuellos de botella comerciales de ${empresa}. ` +
+      'Cada cuello trae su paso, problema, impacto y la acción Kaizen propuesta: conviértelos en tareas calendarizadas por horizonte.\n\n' +
+      'Datos (JSON):\n' +
+      JSON.stringify(data)
+    const BRIEF_USER =
+      `Convierte este borrador en un brief ejecutable para ${empresa}. Rellena los huecos con supuestos inteligentes marcados como supuesto a validar.\n\n` +
+      'Borrador del brief (JSON):\n' +
+      JSON.stringify(data)
+    const EVAL_USER =
+      'Evalúa este brief de cliente con sentido crítico. Detecta fallas, faltantes y áreas de riesgo de retrabajo.\n\n' +
+      'Texto del brief (JSON):\n' +
+      JSON.stringify(data)
+    const ANALYSIS_USER =
+      `Analiza a profundidad **${topic}** de ${empresa}. ` +
+      'Identifica de dónde viene el valor o la fuga, qué decisiones tomar y con qué prioridad. ' +
+      'Si algún dato no aplica al tema, úsalo solo como contexto.\n\n' +
+      'Datos (JSON):\n' +
+      JSON.stringify(data)
+    const user = mode === 'plan' ? PLAN_USER : mode === 'brief' ? BRIEF_USER : mode === 'evaluacion' ? EVAL_USER : ANALYSIS_USER
 
     const body = JSON.stringify({
       model: GROQ_MODEL,

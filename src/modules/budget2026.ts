@@ -76,6 +76,23 @@ const STAFF=[
  ['Costo de Nube',-0.47,-1.20,-0.96],['Gastos UX/UI',0,0,-0.26],['Costo de Activo',-0.05,-0.05,-0.04],
 ];
 const STAFF_TOT=[-190.92,-206.08,-200.30];
+/* P&L mensual Plan 2026 (Ene–Dic) · fuente: "Marketing United 2026 5x7.xlsx", hoja MKT UNITED 26.
+   Solo se cargan las líneas base; los subtotales (sum/gross/net) se calculan en plmRows(). */
+const PLM={
+ 'Ingresos Internos':[24.13,23.94,21.38,27.73,38.24,33.60,28.65,42.12,41.66,40.02,41.82,73.26],
+ 'Ingresos Externos':[1.00,1.59,2.33,2.72,3.40,2.64,3.01,4.15,6.81,10.71,13.31,13.31],
+ 'Activaciones':[-15.08,-15.31,-14.23,-18.27,-24.98,-21.74,-19.00,-27.76,-29.08,-30.44,-33.08,-51.94],
+ 'Comisiones':[-0.05,-0.08,-0.12,-0.14,-0.18,-0.14,-0.16,-0.21,-0.35,-0.55,-0.68,-0.68],
+ 'Participación Socios':[-0.04,-0.06,-0.08,-0.10,-0.12,-0.09,-0.11,-0.15,-0.24,-0.38,-0.47,-0.47],
+ 'Personal':[-4.13,-4.13,-4.13,-4.13,-4.13,-4.13,-4.13,-4.13,-4.13,-4.13,-4.13,-4.13],
+ 'Operación':[-0.67,-1.07,-0.17,-0.42,-0.42,-0.42,-0.27,-0.32,-0.27,-0.27,-0.27,-0.27],
+ 'Mercadotecnia':[-0.15,-0.18,-0.59,-0.25,-0.14,-0.14,-0.14,-0.14,-0.14,-0.17,-0.14,-0.14],
+ 'Renta, Luz y Teléfono':[-0.39,-0.37,-0.37,-0.37,-0.37,-0.37,-0.37,-0.37,-0.37,-0.37,-0.37,-0.37],
+ 'Gastos de despacho GS':[-0.27,-0.23,-0.20,-0.21,-0.21,-0.21,-0.21,-0.21,-0.21,-0.23,-0.21,-0.21],
+ 'Costo de Activo':[0,0,0,0,0,0,0,0,0,-0.03,-0.03,-0.03],
+ 'Gastos Ventas':[-0.51,-0.51,-0.51,-0.51,-0.51,-0.51,-0.51,-0.51,-0.51,-0.51,-0.51,-0.51],
+ 'Gastos Staff':[-1.35,-1.45,-1.49,-1.43,-1.44,-1.44,-1.48,-1.46,-1.56,-1.53,-1.60,-1.60],
+};
 const BD=[
  ['01','Crecimiento Real','¿Crece la ganancia real o solo la facturación? (YoY ganancia bruta)','pct',
    [0.339,0.093,-0.171,-0.035,0.662,0.064,0.353,0.214,0.192,0.184,-0.323],[-0.245,0.403,-0.192,0.246,0.802],'−10% a 0%',[-0.10,0]],
@@ -131,6 +148,13 @@ const DEFAULTS={
   {name:'Total Play',ticket:58018.87,proy:424,al2030:5,margen:0.30},
   {name:'Little Caesars',ticket:2500000,proy:1,al2030:5,margen:0.39},
  ],
+ bottle:[
+  {paso:'Prospección',prob:'Falta de perfiles claros de clientes',imp:'Sesgos en el brief, horas-hombre muertas',acc:'IA para identificar industrias/perfiles · cero tolerancia a briefs incompletos'},
+  {paso:'Propuesta',prob:'Recepción de briefs incompletos',imp:'Retrabajos',acc:'Catálogo de líneas estándar · definir cadena de mando desde el brief'},
+  {paso:'Negociación',prob:'Tiempos muy "quemados"',imp:'Retrabajos',acc:'Asumir riesgo de pérdida · presupuesto claro obligatorio'},
+  {paso:'Cierre',prob:'Comparación vs. otros proveedores',imp:'Tiempo perdido',acc:'Descuentos "listos para aplicar" desde la cotización'},
+  {paso:'Recompra',prob:'Mala experiencia',imp:'Pérdida de cliente',acc:'Sistema estructurado de seguimiento'},
+ ],
  vsm:[
   {n:'1',paso:'Lead',areas:'Comercial / Mkt',dias:5,cuello:1,retrab:1,rrhh:1,cli:0},
   {n:'2',paso:'Brief',areas:'Comercial / Cliente',dias:1,cuello:2,retrab:4,rrhh:4,cli:1},
@@ -149,6 +173,8 @@ const DEFAULTS={
 };
 let S=JSON.parse(JSON.stringify(DEFAULTS));
 let CUR='resumen';
+let PLMODE='resumen'; // toggle de la vista P&L: 'resumen' | 'mensual'
+let BOTEDIT=false; // edición de la tabla de cuellos de botella
 
 /* =================== COMPUTE (replica de fórmulas) =================== */
 function cPF(){const p=S.pf;const costo=p.ingreso*p.costoPct;const util=p.ingreso*p.utilPct;
@@ -198,8 +224,12 @@ const editBadge='<span class="editbadge"><i></i>Celdas verdes = captura editable
 
 /* ---- charts (hex colors; var() no aplica en atributos de presentación SVG) ---- */
 function comboChart(bars,line,labels,{h=200}={}){
-  const W=720,H=h,pl=42,pr=42,pt=14,iw=W-pl-pr,ih=H-pt-26;
-  const bmax=Math.max(...bars,0),bmin=Math.min(...bars,0),lmin=Math.min(...line),lmax=Math.max(...line),n=bars.length,bw=iw/n*0.56;
+  const W=720,H=h,pl=42,pr=42,pt=24,iw=W-pl-pr,ih=H-pt-30;
+  const bmaxR=Math.max(...bars,0),bmin=Math.min(...bars,0),n=bars.length,bw=iw/n*0.56;
+  // headroom en ambas escalas para que la barra más alta y el punto de margen más alto
+  // dejen espacio a sus etiquetas y no se recorten contra el borde superior del SVG
+  const bmax=bmaxR+(bmaxR-bmin)*0.18;
+  const lminR=Math.min(...line),lmaxR=Math.max(...line),lpad=(lmaxR-lminR)*0.20||1,lmin=lminR-lpad*0.5,lmax=lmaxR+lpad;
   const y0=pt+ih*(bmax/(bmax-bmin||1)),by=v=>pt+ih*((bmax-v)/((bmax-bmin)||1)),lx=i=>pl+iw*(i+0.5)/n,ly=v=>pt+ih*((lmax-v)/((lmax-lmin)||1));
   let g=`<line x1="${pl}" x2="${pl+iw}" y1="${y0}" y2="${y0}" stroke="#D2D2C8" stroke-width="1"/>`;
   bars.forEach((v,i)=>{const x=pl+iw*(i+0.5)/n-bw/2,yy=v>=0?by(v):y0,hh=Math.abs(by(v)-y0);
@@ -207,9 +237,15 @@ function comboChart(bars,line,labels,{h=200}={}){
   g+=`<polyline points="${line.map((v,i)=>lx(i).toFixed(1)+','+ly(v).toFixed(1)).join(' ')}" fill="none" stroke="#5A6E00" stroke-width="2.4" stroke-linejoin="round"/>`;
   line.forEach((v,i)=>{g+=`<circle cx="${lx(i).toFixed(1)}" cy="${ly(v).toFixed(1)}" r="3.4" fill="#FFFFFF" stroke="#5A6E00" stroke-width="2"/>`;});
   labels.forEach((l,i)=>{g+=`<text x="${lx(i).toFixed(1)}" y="${H-8}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="9" fill="#74756C">${l}</text>`;});
-  // etiquetas de datos: valor de contribución sobre la barra y % de margen sobre la línea
+  // etiquetas de datos: el valor $ va DENTRO de la barra (blanco) para no encimarse con
+  // el % de margen, que flota sobre la línea. Barras cortas: la etiqueta va encima.
   bars.forEach((v,i)=>{const hh=Math.abs(by(v)-y0);
-    g+=`<text x="${lx(i).toFixed(1)}" y="${(v>=0?by(v)-5:y0+hh+11).toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="600" fill="${v>=0?'#0B0B0C':'#D8472F'}" paint-order="stroke" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round">${money(v)}</text>`;});
+    let yy,fill,halo;
+    if(v>=0){
+      if(hh>=20){yy=by(v)+12;fill='#FFFFFF';halo='#0B0B0C';}   // dentro de la barra
+      else{yy=by(v)-5;fill='#0B0B0C';halo='#FFFFFF';}          // barra muy corta → arriba
+    }else{yy=y0+hh+11;fill='#D8472F';halo='#FFFFFF';}          // barra negativa → abajo
+    g+=`<text x="${lx(i).toFixed(1)}" y="${yy.toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="600" fill="${fill}" paint-order="stroke" stroke="${halo}" stroke-width="3" stroke-linejoin="round">${money(v)}</text>`;});
   line.forEach((v,i)=>{g+=`<text x="${lx(i).toFixed(1)}" y="${(ly(v)-9).toFixed(1)}" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-size="8.5" font-weight="700" fill="#5A6E00" paint-order="stroke" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round">${v.toFixed(1)}%</text>`;});
   // capa interactiva: guía vertical + punto resaltado + zonas de hover por mes
   g+=`<line class="ch-guide" x1="0" x2="0" y1="${pt}" y2="${pt+ih}" stroke="#0B0B0C" stroke-width="1" stroke-dasharray="3 3" opacity="0"/>`;
@@ -323,27 +359,61 @@ function signal(t,big,desc,tone){return `<div style="display:flex;gap:13px;paddi
   <span class="mono ${tone==='pos'?'pos':'neg'}" style="font-size:12px;font-weight:700">${big}</span></div>
   <div style="font-size:12px;color:var(--muted);margin-top:2px">${desc}</div></div></div>`;}
 
+/* flechita estilo Bloomberg: ▲ verde si crece, ▼ rojo si decrece, ▬ si no cambia */
+function trendArrow(d,eps=0.05){
+  if(Math.abs(d)<eps)return `<span style="color:var(--muted);font-size:8.5px;margin-left:2px">▬</span>`;
+  return `<span class="${d>0?'pos':'neg'}" style="font-size:8.5px;margin-left:2px">${d>0?'▲':'▼'}</span>`;}
+function plToggle(){return `<div class="seg pl-seg">
+    <b data-plmode="resumen" class="${PLMODE==='resumen'?'on':''}">RESUMEN</b>
+    <b data-plmode="mensual" class="${PLMODE==='mensual'?'on':''}">MENSUAL</b></div>`;}
+/* construye las filas mensuales (Plan 2026): líneas base + subtotales calculados */
+function plmRows(){
+  const add=(a,b)=>a.map((x,i)=>x+b[i]);
+  const totIng=add(PLM['Ingresos Internos'],PLM['Ingresos Externos']);
+  const costTot=add(add(PLM['Activaciones'],PLM['Comisiones']),PLM['Participación Socios']);
+  const cb=add(totIng,costTot);
+  let totGas=Array(12).fill(0);
+  ['Personal','Operación','Mercadotecnia','Renta, Luz y Teléfono','Gastos de despacho GS','Costo de Activo','Gastos Ventas','Gastos Staff'].forEach(g=>totGas=add(totGas,PLM[g]));
+  const cn=add(cb,totGas);
+  const series={'Total Ingresos':totIng,'Costos Totales':costTot,'Contribución Bruta':cb,'Total Gastos':totGas,'Contribución Neta':cn};
+  return PL.map(r=>({name:r[0],type:r[4],vals:PLM[r[0]]||series[r[0]]})).filter(o=>o.vals);
+}
 function vPL(){
   const v=el('div','view');
-  let rows='';
-  PL.forEach(r=>{const cls=(r[4]==='sum'||r[4]==='gross'||r[4]==='net')?'sum':'';const dP=r[3]-r[2],dR=r[3]-r[1];
-    rows+=`<tr class="${cls}"><td>${r[0]}</td><td>${money(r[1])}</td><td>${money(r[2])}</td><td><b>${money(r[3])}</b></td>
-      <td class="${dP>=0?'pos':'neg'}">${dP>=0?'+':'−'}${Math.abs(dP).toFixed(1)}</td>
-      <td class="${dR>=0?'pos':'neg'}">${dR>=0?'+':'−'}${Math.abs(dR).toFixed(1)}</td></tr>`;});
-  const bridge=[['Total Ingresos',492.78,'var(--ink)'],['Costos Totales',-307.81,'var(--neg)'],['Contribución Bruta',184.97,'var(--lime-deep)'],['Total Gastos',-82.16,'var(--neg)'],['Contribución Neta',102.81,'var(--lime-deep)']];
-  v.innerHTML=`
-   ${aiBar('el Estado de Resultados (P&L)')}
-   <div class="g2">
-     <div class="card cpad">
-       <div class="chead"><span class="t">Estado de resultados · Marketing United</span><span class="k">MDP</span></div>
+  let tableCard;
+  if(PLMODE==='mensual'){
+    const head=`<tr><th>Concepto</th>${MES.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr>`;
+    const body=plmRows().map(o=>{
+      const cls=(o.type==='sum'||o.type==='gross'||o.type==='net')?'sum':'';
+      const tot=o.vals.reduce((a,b)=>a+b,0);
+      const cells=o.vals.map((val,i)=>`<td>${money(val)}${i>0?trendArrow(val-o.vals[i-1]):''}</td>`).join('');
+      return `<tr class="${cls}"><td>${o.name}</td>${cells}<td><b>${money(tot)}</b></td></tr>`;
+    }).join('');
+    tableCard=`<div class="card cpad">
+       <div class="chead"><span class="t">Estado de resultados · Marketing United</span><div class="cheadr"><span class="k">Plan 2026 · MDP</span>${plToggle()}</div></div>
+       <div style="overflow-x:auto"><table class="tbl tbl-m"><thead>${head}</thead><tbody>${body}</tbody></table></div>
+       <div class="note">Plan 2026 mensual · fuente: Marketing United 2026 5x7.xlsx. ▲ verde / ▼ rojo = la cifra creció o decreció vs el mes anterior.</div>
+     </div>`;
+  }else{
+    let rows='';
+    PL.forEach(r=>{const cls=(r[4]==='sum'||r[4]==='gross'||r[4]==='net')?'sum':'';const dP=r[3]-r[2],dR=r[3]-r[1];
+      rows+=`<tr class="${cls}"><td>${r[0]}</td><td>${money(r[1])}</td><td>${money(r[2])}</td><td><b>${money(r[3])}</b></td>
+        <td class="${dP>=0?'pos':'neg'}">${trendArrow(dP)} ${dP>=0?'+':'−'}${Math.abs(dP).toFixed(1)}</td>
+        <td class="${dR>=0?'pos':'neg'}">${trendArrow(dR)} ${dR>=0?'+':'−'}${Math.abs(dR).toFixed(1)}</td></tr>`;});
+    tableCard=`<div class="card cpad">
+       <div class="chead"><span class="t">Estado de resultados · Marketing United</span><div class="cheadr"><span class="k">MDP</span>${plToggle()}</div></div>
        <table class="tbl"><thead><tr><th>Concepto</th><th>Real 2025</th><th>Plan 2026</th><th>Fcst 2026</th><th>Δ Plan</th><th>Δ Real</th></tr></thead><tbody>${rows}</tbody></table>
        <div class="note">Δ verde = mejora la contribución (más ingreso o menos costo). La columna Fcst del libro es captura manual (amarillo): puedo hacerla editable también si lo necesitas.</div>
-     </div>
-     <div>
-       <div class="card cpad"><div class="chead"><span class="t">Puente de resultado · Fcst 2026</span><span class="k">MDP</span></div>${hbar(bridge,{})}</div>
-       <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">Estructura del peso facturado</span><span class="k">Fcst</span></div>${stackBar()}</div>
-     </div>
-   </div>
+     </div>`;
+  }
+  const bridge=[['Total Ingresos',492.78,'var(--ink)'],['Costos Totales',-307.81,'var(--neg)'],['Contribución Bruta',184.97,'var(--lime-deep)'],['Total Gastos',-82.16,'var(--neg)'],['Contribución Neta',102.81,'var(--lime-deep)']];
+  const sideCards=`<div class="card cpad"><div class="chead"><span class="t">Puente de resultado · Fcst 2026</span><span class="k">MDP</span></div>${hbar(bridge,{})}</div>
+       <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">Estructura del peso facturado</span><span class="k">Fcst</span></div>${stackBar()}</div>`;
+  v.innerHTML=`
+   ${aiBar('el Estado de Resultados (P&L)')}
+   ${PLMODE==='mensual'
+     ? `${tableCard}<div class="g2" style="margin-top:16px">${sideCards}</div>`
+     : `<div class="g2">${tableCard}<div>${sideCards}</div></div>`}
    <div class="divh"><span class="n">+</span>Estructura corporativa asignada · Staff 26</div>
    <div class="g2b" style="align-items:start">
      <div class="card cpad"><div class="chead"><span class="t">Gastos de estructura (Grupo)</span><span class="k">MDP</span></div>
@@ -452,22 +522,45 @@ function vProfit(){
 }
 
 const SEM={v:['var(--pos)','Verde'],a:['var(--warn)','Amarillo'],r:['var(--neg)','Rojo'],g:['var(--gray)','Sin dato']};
+const CATS=['Motor','Apuesta']; // categorías estratégicas seleccionables por servicio
+function uenCriterios(){
+  const crit=(tag,col,txt)=>`<div class="critrow"><span class="tag" style="${col?`color:${col};border-color:${col}`:''}">${tag}</span><span>${txt}</span></div>`;
+  return `<div class="card cpad" style="margin-top:16px">
+     <div class="chead"><span class="t">Cómo leer esta tabla</span><span class="k">criterios</span></div>
+     <div class="g2b" style="align-items:start">
+       <div>
+         <div class="eyebrow">Semáforo de rentabilidad</div>
+         <div style="font-size:11.5px;color:var(--muted);margin:4px 0 10px">Sobre la rentabilidad % (Ventas − costos directos − gasto propio, ÷ ventas).</div>
+         ${crit('Verde','var(--pos)','Rentabilidad ≥ 20%. Motor sano: el servicio gana dinero de sobra; conviene concentrar capacidad aquí.')}
+         ${crit('Amarillo','var(--warn)','Rentabilidad entre 10% y 20%. Aporta margen pero el gasto propio lo aprieta: vigilar costeo y precio.')}
+         ${crit('Rojo','var(--neg)','Rentabilidad &lt; 10% (o negativa). Drena margen: renegociar costos, subir precio o salir.')}
+         ${crit('Sin dato','var(--gray)','No hay ventas capturadas todavía, no se puede diagnosticar.')}
+       </div>
+       <div>
+         <div class="eyebrow">Categorías</div>
+         <div style="font-size:11.5px;color:var(--muted);margin:4px 0 10px">Rol estratégico del servicio dentro del portafolio (escógela en el menú de cada fila).</div>
+         ${crit('Motor','','Servicio núcleo: genera el grueso de la facturación y sostiene la operación. Se cuida y se escala.')}
+         ${crit('Apuesta','','Servicio emergente o en desarrollo: potencial alto pero aún sin escala. Se invierte con CAC controlado.')}
+       </div>
+     </div>
+   </div>`;
+}
 function vUEN(){
   const v=el('div','view');
   let tVent=0,tD=0,tMC=0;
   let rows=S.uen.map((u,i)=>{const c=cUEN(u);const s=SEM[c.sem];tVent+=u.ventas;tD+=c.D;tMC+=(c.mcAbs||0);
     const ptoEq=(c.mcPct&&c.mcPct>0)?u.gastoFijo/c.mcPct:null;
     return `<tr>
-      <td><span class="dot" style="background:${s[0]}"></span><span class="edname" contenteditable="true" spellcheck="false" data-bind="uen.${i}.name">${u.name}</span></td>
+      <td><span class="dot" style="background:${s[0]}"></span><span class="edname" contenteditable="true" spellcheck="false" data-bind="uen.${i}.name">${u.name}</span><button class="rowdel" data-act="del-uen" data-i="${i}" title="Quitar servicio">×</button></td>
       <td>${inp('uen.'+i+'.ventas',u.ventas,'num',60)}</td>
       <td>${inp('uen.'+i+'.costoPct',u.costoPct,'pct',54)}</td>
       <td>${inp('uen.'+i+'.gastoFijo',u.gastoFijo,'num',56)}</td>
-      <td>${c.D?money(c.D):'—'}</td>
+      <td>${inp('uen.'+i+'.costoPct',c.D,'cdir',64)}</td>
       <td class="${c.rentAbs==null?'':(c.rentAbs>=0?'pos':'neg')}"><b>${c.rentAbs==null?'—':money(c.rentAbs)}</b></td>
       <td>${c.rentPct==null?'—':pct(c.rentPct,1)}</td>
       <td>${ptoEq==null?'—':money(ptoEq)}</td>
       <td><span class="tag" style="color:${s[0]};border-color:${s[0]}">${s[1]}</span></td>
-      <td><span class="mono" style="font-size:10px;color:var(--muted)">${u.cat}</span></td></tr>`;}).join('');
+      <td><select class="catsel" data-bind="uen.${i}.cat" title="Escoger categoría">${CATS.map(cc=>`<option${cc===u.cat?' selected':''}>${cc}</option>`).join('')}</select></td></tr>`;}).join('');
   const comp=S.uen.map(u=>({u,c:cUEN(u)}));
   const bars=comp.filter(x=>x.c.rentAbs!=null).map(x=>[x.u.name,x.c.rentAbs,SEM[x.c.sem][0]]).sort((a,b)=>b[1]-a[1]);
   const verdes=comp.filter(x=>x.c.sem==='v').map(x=>x.u.name);
@@ -482,11 +575,12 @@ function vUEN(){
    <div style="display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:14px">
      <div class="sectsub">¿Marketing United gana dinero en todo lo que vende? Edita <b>ventas, % de costo directo y costo fijo asignado</b>; rentabilidad, punto de equilibrio y semáforo recalculan solos.</div>${editBadge}</div>
    <div class="card cpad">
-     <div class="chead"><span class="t">Rentabilidad por Servicio</span><span class="k">MDP · semáforo automático</span></div>
-     <table class="tbl"><thead><tr><th>Servicio</th><th>Ventas</th><th>% Costo</th><th>C. fijo</th><th>C. directos</th><th>Rentab. $</th><th>Rentab. %</th><th>Pto. Eq.</th><th>Diag.</th><th>Categoría</th></tr></thead>
-     <tbody>${rows}<tr class="sum"><td>Total</td><td>${money(tVent)}</td><td></td><td></td><td>${money(tD)}</td><td>${money(tMC-S.fGastoPropio*comp.filter(x=>x.u.ventas>0).length)}</td><td></td><td></td><td></td><td></td></tr></tbody></table>
-     <div class="note">Semáforo automático: Verde ≥ 20% · Amarillo 10–20% · Rojo &lt; 10% de rentabilidad. Rentab. $ = Ventas − Costos directos − Gasto propio ($${S.fGastoPropio.toFixed(2)} MDP/Servicio). Pto. Eq. = Costo fijo ÷ margen de contribución.</div>
+     <div class="chead"><span class="t">Rentabilidad por Servicio</span><div class="cheadr"><span class="k">MDP · semáforo automático</span><button class="addbtn" data-act="add-uen">＋ Agregar servicio</button></div></div>
+     <div style="overflow-x:auto"><table class="tbl"><thead><tr><th>Servicio</th><th>Ventas</th><th>% Costo</th><th>C. fijo</th><th>C. directos</th><th>Rentab. $</th><th>Rentab. %</th><th>Punto de Equilibrio</th><th>Diag.</th><th>Categoría</th></tr></thead>
+     <tbody>${rows}<tr class="sum"><td>Total</td><td>${money(tVent)}</td><td></td><td></td><td>${money(tD)}</td><td>${money(tMC-S.fGastoPropio*comp.filter(x=>x.u.ventas>0).length)}</td><td></td><td></td><td></td><td></td></tr></tbody></table></div>
+     <div class="note">Semáforo automático: Verde ≥ 20% · Amarillo 10–20% · Rojo &lt; 10% de rentabilidad. Rentab. $ = Ventas − Costos directos − Gasto propio ($${S.fGastoPropio.toFixed(2)} MDP/Servicio). Punto de equilibrio = Costo fijo ÷ margen de contribución. <b>Ventas, % costo, C. directos y C. fijo</b> son captura manual (editar % costo o C. directos actualiza el otro).</div>
    </div>
+   ${uenCriterios()}
    <div class="g2" style="margin-top:16px">
      <div class="card cpad"><div class="chead"><span class="t">Rentabilidad $ por Servicio</span><span class="k">ordenado</span></div>${hbar(bars,{})}
        <div class="legend" style="margin-top:14px"><span><i class="dot" style="background:var(--pos)"></i>Verde · motor sano</span>
@@ -534,18 +628,24 @@ function vDrivers(){
   const legend=`<div class="legend" style="margin-top:10px;font-size:10px"><span><i style="width:14px;height:2px;background:var(--ink);display:inline-block"></i>Presupuesto</span>
       <span><i style="width:14px;height:2px;background:var(--neg);display:inline-block"></i>Real a mayo</span><span><i style="width:12px;height:10px;background:rgba(199,232,74,.55);display:inline-block"></i>Zona KPI</span></div>`;
   BD.forEach(b=>{
+    if(b[0]==='07')return; // Driver 07 (Ciclo de Recuperación de Efectivo) eliminado: sin captura mensual
     const head=(extra)=>`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:10px">
         <div><div class="num">DRIVER ${b[0]}</div><h4 style="margin:3px 0 3px">${b[1]}</h4><div class="q" style="min-height:0">${b[2]}</div></div>
         <div style="text-align:right;flex:0 0 auto">${extra}</div></div>`;
-    if(b[0]==='07'){cards+=`<div class="bd" style="display:block">
-      ${head(`<div style="font-family:var(--disp);font-weight:700;font-size:28px;letter-spacing:-.02em">30–60</div><div class="mono" style="font-size:10px;color:var(--muted)">días · objetivo</div>`)}
-      <div style="height:120px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12.5px;text-align:center;background:rgba(199,232,74,.10);border-radius:8px">Capturar días por mes según Balance General · (CxC días − CxP días) — KPI: ${b[6]}</div></div>`;return;}
     const fmt=b[3],last=b[4][b[4].length-1];
     const show=v=>fmt==='pct'?pct(v,1):fmt==='x'?v.toFixed(1)+'x':fmt==='mdp'?'$'+v.toFixed(1):v.toFixed(1);
     cards+=`<div class="bd" style="display:block">
       ${head(`<div style="font-family:var(--disp);font-weight:700;font-size:28px;letter-spacing:-.02em">${show(last)}</div><div class="mono" style="font-size:10px;color:var(--muted)">presup. dic · meta ${b[6]}</div>`)}
       ${driverChart(b)}${legend}</div>`;});
-  v.innerHTML=`${aiBar('los Business Drivers')}<div class="sectsub" style="margin-bottom:18px">Siete preguntas de negocio convertidas en indicador. Cada gráfica muestra el presupuesto mensual, el real a mayo y la zona KPI objetivo, con la cifra en cada punto.</div><div style="display:flex;flex-direction:column;gap:16px">${cards}</div>`;
+  v.innerHTML=`${aiBar('los Business Drivers')}
+   <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:18px">
+     <div class="sectsub" style="margin:0">Seis preguntas de negocio convertidas en indicador. Cada gráfica muestra el presupuesto mensual, el real a mayo y la zona KPI objetivo, con la cifra en cada punto.</div>
+     <button class="addbtn no-print" data-act="export-drivers" style="flex:0 0 auto" title="Exportar las gráficas a PDF">⤓ Exportar PDF</button>
+   </div>
+   <div id="drivers-export" style="display:flex;flex-direction:column;gap:16px">
+     <div class="print-only print-head">Marketing United · Business Drivers · Presupuesto 2026</div>
+     ${cards}
+   </div>`;
   return v;
 }
 
@@ -564,6 +664,12 @@ function vComercial(){
       <td>${inp('ltv.'+i+'.al2030',l.al2030,'int',46)}</td><td>${inp('ltv.'+i+'.margen',l.margen,'pct',54)}</td>
       <td><b>$${(ltv/1e6).toFixed(1)}M</b></td></tr>`;}).join('');
   const ltvBars=S.ltv.map(l=>[l.name,l.ticket*l.proy*l.al2030*l.margen/1e6,'var(--ink)']).sort((a,b)=>b[1]-a[1]);
+  const ed=(i,field,val)=>`<span class="edcell" contenteditable="true" spellcheck="false" data-bind="bottle.${i}.${field}">${val}</span>`;
+  const botRows=S.bottle.map((b,i)=>`<tr>
+       <td>${BOTEDIT?ed(i,'paso',b.paso):b.paso}</td>
+       <td style="text-align:left;font-family:var(--sans);font-weight:400">${BOTEDIT?ed(i,'prob',b.prob):b.prob}</td>
+       <td style="text-align:left;font-family:var(--sans);font-weight:400;color:var(--muted)">${BOTEDIT?ed(i,'imp',b.imp):b.imp}</td>
+       <td style="text-align:left;font-family:var(--sans);font-weight:400">${BOTEDIT?ed(i,'acc',b.acc):`<span class="chiplim">${b.acc}</span>`}</td></tr>`).join('');
   v.innerHTML=`
    ${aiBar('el Modelo Comercial')}
    <div style="display:flex;justify-content:flex-end;margin-bottom:14px">${editBadge}</div>
@@ -580,11 +686,15 @@ function vComercial(){
    <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">CAC por canal de prospección</span><span class="k">CAC = inversión ÷ proyectos</span></div>
      <table class="tbl"><thead><tr><th>Canal</th><th>Inversión</th><th>Proyectos</th><th>CAC</th><th>Calidad fuente</th></tr></thead><tbody>${cacRows}</tbody></table>
      <div class="note">Grupo Salinas y CoMarketing traen el CAC más bajo con alta calidad. Marketing Corporativo cuesta más por proyecto con baja calidad: candidato a recortar.</div></div>
-   <div class="card cpad" style="margin-top:16px"><div class="chead"><span class="t">Cuellos de botella comerciales · acción Lean Kaizen</span><span class="k">por etapa</span></div>
+   <div class="card cpad" style="margin-top:16px">
+     <div class="chead"><span class="t">Cuellos de botella comerciales · acción Lean Kaizen</span>
+       <div class="cheadr"><span class="k">por etapa</span>
+         <button class="minibtn" data-act="edit-bottle">${BOTEDIT?'✓ Listo':'✎ Editar'}</button>
+         <button class="addbtn" data-act="plan-bottle">✦ Generar plan de trabajo</button></div></div>
      <table class="tbl"><thead><tr><th>Paso</th><th style="text-align:left">Problema</th><th style="text-align:left">Impacto</th><th style="text-align:left">Acción Kaizen</th></tr></thead>
-     <tbody>${BOTTLE.map(b=>`<tr><td>${b[0]}</td><td style="text-align:left;font-family:var(--sans);font-weight:400">${b[1]}</td>
-       <td style="text-align:left;font-family:var(--sans);font-weight:400;color:var(--muted)">${b[2]}</td>
-       <td style="text-align:left;font-family:var(--sans);font-weight:400"><span class="chiplim">${b[3]}</span></td></tr>`).join('')}</tbody></table></div>`;
+     <tbody>${botRows}</tbody></table>
+     ${BOTEDIT?'<div class="note">Edita cualquier celda y pulsa <b>✓ Listo</b> para guardar. Los cambios alimentan el plan de trabajo que genera la IA.</div>':''}
+     <div class="aipanel planpanel" style="display:none;margin-top:14px"></div></div>`;
   return v;
 }
 
@@ -606,6 +716,7 @@ function vOperativo(){
      <span><i class="h" style="width:14px;height:6px;display:inline-block;border-radius:3px;background:var(--line-2)"></i>bajo</span>
      <span><i class="h" style="width:14px;height:6px;display:inline-block;border-radius:3px;background:var(--warn)"></i>medio</span>
      <span><i class="h" style="width:14px;height:6px;display:inline-block;border-radius:3px;background:var(--neg)"></i>alto</span></div></div>
+   ${opDiagnostico()}
    <div class="g2" style="margin-top:16px">
      <div class="card cpad"><div class="chead"><span class="t">Días por paso</span><span class="k">días hábiles</span></div>
        ${hbar(S.vsm.map(s=>[s.paso,s.dias,s.dias>=5?'var(--neg)':'var(--ink)']),{fmt:v=>v+'d'})}
@@ -616,12 +727,72 @@ function vOperativo(){
        ${gate('Tiempo','¿Para cuándo lo necesitas?','Plazo real para cotizar e implementar')}
        ${gate('Costo','¿Cuánto presupuesto vas a destinar?','Rango mínimo y máximo definido')}
        <div class="note">No avanza al siguiente paso si el brief no cumple los tres gates.</div></div>
-   </div>`;
+   </div>
+   ${briefEvaluador()}`;
   return v;
 }
 function gate(t,q,need){return `<div style="display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--line)">
   <span class="chiplim" style="height:fit-content">${t}</span><div><div style="font-size:12.5px;font-weight:500">${q}</div>
   <div style="font-size:11px;color:var(--muted)">→ ${need}</div></div></div>`;}
+/* Diagnóstico claro: el retrabajo nace justo en los 2 pasos donde entra el cliente */
+function opDiagnostico(){
+  const cli=S.vsm.filter(s=>s.cli);
+  const nombres=cli.map(s=>`<b>${s.paso}</b> (paso ${s.n})`).join(' y ');
+  const retrabTot=S.vsm.reduce((a,s)=>a+s.retrab,0);
+  const retrabCli=cli.reduce((a,s)=>a+s.retrab,0);
+  const share=retrabTot?Math.round(retrabCli/retrabTot*100):0;
+  return `<div class="card cpad" style="margin-top:16px;border-left:4px solid var(--warn)">
+     <div class="eyebrow" style="color:var(--warn)">Diagnóstico · dónde nace el retrabajo</div>
+     <div style="font-family:var(--disp);font-weight:600;font-size:21px;letter-spacing:-.01em;margin:6px 0 8px">El cuello no es de producción: es de <span style="color:var(--warn)">definición</span></div>
+     <div style="font-size:13px;line-height:1.55;max-width:880px">Los <b>dos únicos pasos donde interviene el cliente</b> — ${nombres} — concentran el retrabajo más alto del flujo: <b>${share}%</b> del total. El origen está arriba: el cliente <b>no sabe con precisión qué quiere</b>, y esa ambigüedad se arrastra a debrief, diseño, cotización y producción multiplicando horas-hombre muertas. La palanca no es correr más rápido abajo, es <b>blindar el brief</b>: no dejar avanzar nada sin Calidad, Tiempo y Costo definidos.</div>
+   </div>`;
+}
+/* ---- Evaluador de Brief: arrastra el brief y la IA califica fallas / faltantes / riesgos ---- */
+function briefEvaluador(){
+  return `<div class="card cpad" style="margin-top:16px">
+     <div class="chead"><span class="t">Evaluador de Brief · ¿está listo para avanzar?</span><span class="k">arrastra y suelta</span></div>
+     <div class="sectsub" style="margin:0 0 14px">El retrabajo nace de un brief flojo. Arrastra el <b>brief del cliente</b> (PDF, Word o texto) y la IA detecta <b>fallas, faltantes y áreas de riesgo</b> antes de que cueste horas-hombre.</div>
+     <div id="briefdrop" class="dropzone">
+       <div class="dz-ic">⇪</div>
+       <div class="dz-t">Arrastra aquí el brief</div>
+       <div class="dz-s">PDF · Word (.docx) · texto — o haz clic para elegir</div>
+       <input type="file" id="brieffile" accept=".pdf,.doc,.docx,.txt,.md,.rtf,.csv" hidden>
+     </div>
+     <textarea id="brieftext" class="briefin" rows="5" placeholder="…o pega aquí el texto del brief" style="margin-top:12px"></textarea>
+     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:12px">
+       <button class="minibtn" data-act="brief-clear">Limpiar</button>
+       <button class="addbtn" data-act="brief-eval">✦ Evaluar brief</button></div>
+     <div class="aipanel briefpanel" style="display:none;margin-top:16px"></div>
+   </div>`;
+}
+/* extracción de texto del archivo soltado (PDF/DOCX vía CDN; texto plano nativo) */
+function _cdnImport(u){return (new Function('u','return import(u)'))(u);}
+async function extractBriefFile(file){
+  const name=(file.name||'').toLowerCase();
+  if(/\.(txt|md|csv|json|log|rtf)$/.test(name)||(file.type||'').startsWith('text/'))return await file.text();
+  if(name.endsWith('.pdf')||file.type==='application/pdf'){
+    const lib=await _cdnImport('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.min.mjs');
+    lib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@4.7.76/build/pdf.worker.min.mjs';
+    const pdf=await lib.getDocument({data:await file.arrayBuffer()}).promise;
+    let out='';for(let p=1;p<=pdf.numPages;p++){const tc=await (await pdf.getPage(p)).getTextContent();out+=tc.items.map(it=>it.str).join(' ')+'\n';}
+    return out;
+  }
+  if(name.endsWith('.docx')){
+    const mammoth=await _cdnImport('https://cdn.jsdelivr.net/npm/mammoth@1.8.0/+esm');
+    const res=await mammoth.extractRawText({arrayBuffer:await file.arrayBuffer()});
+    return res.value||'';
+  }
+  return await file.text(); // último intento
+}
+async function handleBriefFile(f){
+  const ta=$('#brieftext'),dz=$('#briefdrop'),st=dz&&dz.querySelector('.dz-t');
+  if(st)st.textContent='Leyendo '+f.name+'…';
+  try{
+    const text=(await extractBriefFile(f)||'').trim();
+    if(ta)ta.value=text;
+    if(st)st.textContent=text?('✓ '+f.name+' · '+text.length+' caracteres'):('Sin texto legible en '+f.name+' — pégalo manualmente');
+  }catch(_){if(st)st.textContent='No se pudo leer '+f.name+' — pega el texto manualmente';}
+}
 
 function vCapacidad(){
   const v=el('div','view');const c=cCap();const cap=S.cap;
@@ -678,9 +849,10 @@ function recalc(){go(CUR,true);}
 ROOT.addEventListener('change',e=>{
   const t=e.target;if(!t.classList||!t.classList.contains('inp'))return;
   let val=parseFloat(String(t.value).replace(/,/g,''));if(isNaN(val))val=0;
-  if(t.dataset.t==='pct')val=val/100;
   const path=t.dataset.bind.split('.');let o=S;
   for(let j=0;j<path.length-1;j++)o=o[path[j]];
+  if(t.dataset.t==='pct')val=val/100;
+  else if(t.dataset.t==='cdir')val=o.ventas?val/o.ventas:0; // captura de costos directos en $ → % costo
   o[path[path.length-1]]=val;
   recalc();
 });
@@ -695,6 +867,22 @@ ROOT.addEventListener('focusout',e=>{
 ROOT.addEventListener('keydown',e=>{
   const t=e.target;if(t.classList&&t.classList.contains('edname')&&e.key==='Enter'){e.preventDefault();t.blur();}
 });
+// Llama a /api/analyze de forma robusta: tolera respuestas que NO son JSON
+// (p. ej. cuando la función serverless no está desplegada en Vercel y cae al HTML del SPA → 404).
+async function callAnalyze(body){
+  let r;
+  try{r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+  catch(_){throw new Error('No hay conexión con /api/analyze.');}
+  const raw=await r.text();
+  let data=null;try{data=raw?JSON.parse(raw):{};}catch(_){data=null;}
+  if(data===null){
+    throw new Error(r.status===404
+      ? 'La función /api/analyze no existe en este despliegue. En Vercel: sube la carpeta api/ y configura GROQ_API_KEY.'
+      : 'El servidor no devolvió JSON (código '+r.status+'). Revisa la función /api/analyze en Vercel.');
+  }
+  if(!r.ok)throw new Error(data.error||('Error '+r.status));
+  return data.text||'(sin respuesta)';
+}
 ROOT.addEventListener('click',async e=>{
   const btn=e.target.closest?e.target.closest('.aibtn'):null;if(!btn||btn.disabled)return;
   const wrap=btn.closest('.aiwrap'),panel=wrap&&wrap.querySelector('.aipanel');if(!panel)return;
@@ -702,11 +890,71 @@ ROOT.addEventListener('click',async e=>{
   btn.disabled=true;btn.textContent='Analizando…';
   panel.style.display='block';panel.innerHTML='<div class="aiload"><span class="aispin"></span>GENERANDO ANÁLISIS PROFUNDO…</div>';
   try{
-    const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic,empresa:'Marketing United',payload:aiPayload()})});
-    const data=await r.json();if(!r.ok)throw new Error(data.error||('Error '+r.status));
-    panel.innerHTML='<div class="aihead"><span class="aibadge">✦ Análisis</span></div><div class="aibody">'+mdToHtml(data.text||'(sin respuesta)')+'</div>';
+    const text=await callAnalyze({topic,empresa:'Marketing United',payload:aiPayload()});
+    panel.innerHTML='<div class="aihead"><span class="aibadge">✦ Análisis</span></div><div class="aibody">'+mdToHtml(text)+'</div>';
   }catch(err){panel.innerHTML='<div class="aierr">No se pudo generar el análisis: '+(err&&err.message?err.message:err)+'</div>';}
   finally{btn.disabled=false;btn.textContent=label;}
+});
+ROOT.addEventListener('click',e=>{
+  const seg=e.target.closest?e.target.closest('[data-plmode]'):null;if(!seg)return;
+  const m=seg.dataset.plmode;if(m===PLMODE)return;PLMODE=m;go('pl',true);
+});
+ROOT.addEventListener('click',e=>{
+  const a=e.target.closest?e.target.closest('[data-act]'):null;if(!a)return;
+  const act=a.dataset.act,i=+a.dataset.i;
+  if(act==='add-uen'){S.uen.push({name:'Nuevo servicio',ventas:0,costoPct:0,gastoFijo:1.85,cat:CATS[0]});recalc();}
+  else if(act==='del-uen'){if(S.uen.length>1){S.uen.splice(i,1);recalc();}}
+  else if(act==='export-drivers'){document.body.classList.add('print-drivers');window.print();}
+  else if(act==='edit-bottle'){BOTEDIT=!BOTEDIT;go('comercial',true);}
+});
+window.addEventListener('afterprint',()=>document.body.classList.remove('print-drivers'));
+// guardar ediciones de la tabla de cuellos de botella (sin re-render, para no perder el foco)
+ROOT.addEventListener('focusout',e=>{
+  const t=e.target;if(!t.classList||!t.classList.contains('edcell'))return;
+  const path=t.dataset.bind.split('.');let o=S;
+  for(let j=0;j<path.length-1;j++)o=o[path[j]];
+  o[path[path.length-1]]=(t.textContent||'').trim();
+});
+// Evaluador de Brief · drag & drop + selección de archivo
+ROOT.addEventListener('dragover',e=>{const dz=e.target.closest&&e.target.closest('#briefdrop');if(!dz)return;e.preventDefault();dz.classList.add('drag');});
+ROOT.addEventListener('dragleave',e=>{const dz=e.target.closest&&e.target.closest('#briefdrop');if(dz)dz.classList.remove('drag');});
+ROOT.addEventListener('drop',async e=>{const dz=e.target.closest&&e.target.closest('#briefdrop');if(!dz)return;e.preventDefault();dz.classList.remove('drag');const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];if(f)await handleBriefFile(f);});
+ROOT.addEventListener('click',e=>{const dz=e.target.closest&&e.target.closest('#briefdrop');if(!dz)return;const fi=$('#brieffile');if(fi)fi.click();});
+ROOT.addEventListener('change',e=>{const t=e.target;if(t.id!=='brieffile')return;const f=t.files&&t.files[0];if(f)handleBriefFile(f);});
+// Evaluar el brief con IA (fallas, faltantes, riesgos)
+ROOT.addEventListener('click',async e=>{
+  const a=e.target.closest?e.target.closest('[data-act="brief-eval"],[data-act="brief-clear"]'):null;if(!a)return;
+  const panel=$('.briefpanel'),ta=$('#brieftext');
+  if(a.dataset.act==='brief-clear'){if(ta)ta.value='';if(panel){panel.style.display='none';panel.innerHTML='';}const st=$('#briefdrop')&&$('#briefdrop').querySelector('.dz-t');if(st)st.textContent='Arrastra aquí el brief';return;}
+  if(a.disabled)return;
+  const txt=((ta&&ta.value)||'').trim();
+  if(!panel)return;panel.style.display='block';
+  if(!txt){panel.innerHTML='<div class="aierr">Arrastra un archivo o pega el texto del brief antes de evaluar.</div>';return;}
+  const label=a.textContent;a.disabled=true;a.textContent='Evaluando…';
+  panel.innerHTML='<div class="aiload"><span class="aispin"></span>EVALUANDO BRIEF…</div>';
+  try{
+    const text=await callAnalyze({mode:'evaluacion',empresa:'Marketing United',topic:'evaluación de brief',payload:{brief:txt}});
+    panel.innerHTML='<div class="aihead"><span class="aibadge">✦ Evaluación del brief</span></div><div class="aibody">'+mdToHtml(text)+'</div>';
+  }catch(err){panel.innerHTML='<div class="aierr">No se pudo evaluar el brief: '+(err&&err.message?err.message:err)+'</div>';}
+  finally{a.disabled=false;a.textContent=label;}
+});
+// Generar plan de trabajo 30·60·90 con IA a partir de los cuellos de botella
+ROOT.addEventListener('click',async e=>{
+  const pb=e.target.closest?e.target.closest('[data-act="plan-bottle"]'):null;if(!pb||pb.disabled)return;
+  const panel=$('.planpanel');if(!panel)return;
+  const label=pb.textContent;pb.disabled=true;pb.textContent='Generando…';
+  panel.style.display='block';panel.innerHTML='<div class="aiload"><span class="aispin"></span>GENERANDO PLAN DE TRABAJO · 30·60·90 DÍAS…</div>';
+  try{
+    const text=await callAnalyze({mode:'plan',empresa:'Marketing United',topic:'plan de trabajo 30·60·90 días para los cuellos de botella comerciales',payload:{cuellosDeBotella:S.bottle}});
+    panel.innerHTML='<div class="aihead"><span class="aibadge">✦ Plan de trabajo · 30·60·90 días</span></div><div class="aibody">'+mdToHtml(text)+'</div>';
+  }catch(err){panel.innerHTML='<div class="aierr">No se pudo generar el plan: '+(err&&err.message?err.message:err)+'</div>';}
+  finally{pb.disabled=false;pb.textContent=label;}
+});
+ROOT.addEventListener('change',e=>{
+  const t=e.target;if(!t.classList||!t.classList.contains('catsel'))return;
+  const path=t.dataset.bind.split('.');let o=S;
+  for(let j=0;j<path.length-1;j++)o=o[path[j]];
+  o[path[path.length-1]]=t.value;recalc();
 });
 ROOT.querySelectorAll('.nav a').forEach(a=>a.addEventListener('click',()=>go(a.dataset.v)));
 $('.menubtn').addEventListener('click',()=>$('.side').classList.toggle('open'));
